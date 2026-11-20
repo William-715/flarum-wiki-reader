@@ -27,6 +27,7 @@
     let panelOpen = false;
     let lastSavedAt = 0;
     let dirty = false;
+    let restoring = false;
     let saving = false;
     let saveTimer = null;
 
@@ -69,24 +70,59 @@
       return document.querySelector('.LinkRobinsWiki-articleBody');
     }
 
+    // Stable block-order anchors survive phone/desktop reflow. LR Wiki renders
+    // identical article HTML on both devices, but paragraphs have different
+    // heights, making document-wide scroll percentages unreliable.
+    const BLOCKS = 'h1,h2,h3,h4,h5,h6,p,li,pre,blockquote,table';
+
+    function articleBlocks(body) {
+      return Array.from(body.querySelectorAll(BLOCKS)).filter(function (el) {
+        // For nested <li><p>...</p></li>, only count the outer block.
+        const parentBlock = el.parentElement && el.parentElement.closest(BLOCKS);
+        return !parentBlock || !body.contains(parentBlock);
+      });
+    }
+
     function snapshot() {
       const body = getBody();
-      if (!body) return null;
+      if (!body || !active || !active.article) return null;
       const rect = body.getBoundingClientRect();
       const top = rect.top + window.scrollY;
-      const target = window.scrollY + Math.min(window.innerHeight * 0.28, 180);
+      const viewY = Math.min(window.innerHeight * 0.28, 180);
+      const target = window.scrollY + viewY;
       const length = Math.max(1, body.scrollHeight);
       const percent = clamp(((target - top) / length) * 100);
-      const headings = Array.from(body.querySelectorAll('h1,h2,h3,h4,h5,h6[id]'));
-      let currentHeading = null;
-      for (const h of headings) {
-        if (h.getBoundingClientRect().top <= Math.min(window.innerHeight * 0.35, 200)) currentHeading = h;
-        else break;
+
+      const blocks = articleBlocks(body);
+      let chosen = null;
+      let chosenIndex = -1;
+      for (let i = 0; i < blocks.length; i++) {
+        const b = blocks[i].getBoundingClientRect();
+        if (b.height <= 0) continue;
+        if (b.top <= viewY) {
+          chosen = blocks[i];
+          chosenIndex = i;
+          if (b.bottom >= viewY) break;
+        } else if (!chosen) {
+          chosen = blocks[i];
+          chosenIndex = i;
+          break;
+        } else {
+          break;
+        }
+      }
+
+      let anchorId = null;
+      if (chosen && chosenIndex >= 0) {
+        const b = chosen.getBoundingClientRect();
+        const inside = Math.max(0, Math.min(1000, Math.round((viewY - b.top) / Math.max(1, b.height) * 1000)));
+        // Reuse the existing varchar(190) anchor_id; no database migration.
+        anchorId = 'srp-' + active.article.id + '-' + chosenIndex + '-' + inside;
       }
       return {
         scrollPercent: percent,
-        anchorId: currentHeading && currentHeading.id || null,
-        label: currentHeading && currentHeading.textContent && currentHeading.textContent.trim() || (active && active.article.title) || '当前位置'
+        anchorId: anchorId,
+        label: chosen && chosen.textContent && chosen.textContent.trim().slice(0, 120) || (active && active.article.title) || '当前位置'
       };
     }
 
@@ -102,7 +138,7 @@
     }
 
     function queueSave() {
-      if (!signedIn() || !active || !active.article || !getBody()) return;
+      if (restoring || !signedIn() || !active || !active.article || !getBody()) return;
       dirty = true;
       if (saveTimer) return;
       saveTimer = window.setTimeout(function () {
@@ -148,31 +184,59 @@
     }
 
     function restorePoint(point) {
-      if (!point) return;
+      if (!point) return false;
       const body = getBody();
-      if (!body) return;
-      const percent = Number(point.scrollPercent);
+      if (!body) return false;
+      const viewY = Math.min(window.innerHeight * 0.28, 180);
       let y = NaN;
-      if (Number.isFinite(percent) && percent >= 0 && percent <= 100) {
-        y = body.getBoundingClientRect().top + window.scrollY + body.scrollHeight * (percent / 100) - Math.min(window.innerHeight * 0.28, 180);
+
+      // New beta.5 bookmark: article id + stable block index + position inside
+      // that block (0..1000). Restore by content position, not page height.
+      const match = typeof point.anchorId === 'string' && /^srp-(\d+)-(\d+)-(\d{1,4})$/.exec(point.anchorId);
+      if (match && active && active.article && Number(match[1]) === Number(active.article.id)) {
+        const block = articleBlocks(body)[Number(match[2])];
+        if (block && Number(match[3]) <= 1000) {
+          const b = block.getBoundingClientRect();
+          y = b.top + window.scrollY + b.height * Number(match[3]) / 1000 - viewY;
+        }
       }
-      if (!Number.isFinite(y) && point.anchorId) {
-        const candidate = document.getElementById(point.anchorId);
-        if (candidate && body.contains(candidate)) y = candidate.getBoundingClientRect().top + window.scrollY - 95;
+
+      // Backward compatibility: beta.4 bookmarks had LR Wiki heading ids.
+      if (!Number.isFinite(y) && point.anchorId && !match) {
+        const heading = document.getElementById(point.anchorId);
+        if (heading && body.contains(heading)) y = heading.getBoundingClientRect().top + window.scrollY - viewY;
       }
-      if (Number.isFinite(y)) {
-        window.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
-        statusText('已回到上次阅读位置');
+
+      // Old records without a usable anchor fall back to page-wide percent.
+      const percent = Number(point.scrollPercent);
+      if (!Number.isFinite(y) && Number.isFinite(percent) && percent >= 0 && percent <= 100) {
+        y = body.getBoundingClientRect().top + window.scrollY + body.scrollHeight * (percent / 100) - viewY;
       }
+      if (!Number.isFinite(y)) return false;
+      window.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
+      statusText('已回到上次阅读位置');
+      return true;
     }
 
     function restoreWhenReady(point, token, attempts) {
-      if (generation !== token || attempts <= 0) return;
-      if (getBody()) {
-        restorePoint(point);
+      if (generation !== token || attempts <= 0) {
+        restoring = false;
         return;
       }
-      window.setTimeout(function () { restoreWhenReady(point, token, attempts - 1); }, 200);
+      const body = getBody();
+      if (!body || !body.textContent || !body.textContent.trim() || body.scrollHeight < 30) {
+        window.setTimeout(function () { restoreWhenReady(point, token, attempts - 1); }, 200);
+        return;
+      }
+      restoring = true;
+      // Flarum mounts Wiki content asynchronously. Allow the layout and
+      // heading ids to settle before attempting to scroll.
+      window.requestAnimationFrame(function () {
+        window.requestAnimationFrame(function () {
+          if (generation === token) restorePoint(point);
+          window.setTimeout(function () { restoring = false; }, 700);
+        });
+      });
     }
 
     function button(text, className, handler) {
@@ -326,16 +390,20 @@
           window.setTimeout(function () { if (generation === token) queueSave(); }, 2200);
         }
         const search = new URLSearchParams(window.location.search);
+        let desired = result.progress;
         if (search.get('sr_resume') === '1') {
           const requestedPercent = search.has('sr_percent') ? Number(search.get('sr_percent')) : NaN;
-          const desired = Number.isFinite(requestedPercent) && requestedPercent >= 0 && requestedPercent <= 100
-            ? { scrollPercent: requestedPercent, anchorId: search.get('sr_anchor') }
-            : result.progress;
-          if (desired) {
-            window.setTimeout(function () {
-              restoreWhenReady(desired, token, 20);
-            }, 300);
+          const anchor = search.get('sr_anchor');
+          if ((Number.isFinite(requestedPercent) && requestedPercent >= 0 && requestedPercent <= 100) || anchor) {
+            desired = { scrollPercent: requestedPercent, anchorId: anchor };
           }
+        }
+        // Opening the article directly on another device also resumes the
+        // latest synced reading position. Manual bookmarks remain separate;
+        // tap one under My Reading to jump to a specific older bookmark.
+        if (desired) {
+          restoring = true;
+          window.setTimeout(function () { restoreWhenReady(desired, token, 35); }, 300);
         }
       } catch (err) {
         if (generation === token) {
@@ -348,7 +416,11 @@
 
     function onRouteChange() {
       const route = parseWikiRoute();
-      const routeKey = window.location.pathname;
+      // Watch resume query params too: mobile SPA navigation can open a
+      // bookmark to the *same* article without changing pathname.
+      const qs = new URLSearchParams(window.location.search);
+      const routeKey = window.location.pathname + '|' + (qs.get('sr_resume') || '') + '|' +
+        (qs.get('sr_anchor') || '') + '|' + (qs.get('sr_percent') || '');
       if (routeKey === currentPath) {
         if (active) updateDock();
         return;
@@ -357,6 +429,7 @@
       if (saveTimer) window.clearTimeout(saveTimer);
       saveTimer = null;
       dirty = false;
+      restoring = false;
       currentPath = routeKey;
       generation++;
       active = null;

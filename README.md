@@ -4,6 +4,27 @@ An independent Flarum **2.x** extension adding per-user reading progress, resume
 
 **Status:** Experimental beta; source and lightweight static checks only. This has **not** passed Flarum+LR Wiki integration testing. Do not deploy to a production forum without testing on a backup clone.
 
+## v0.1.0-beta.5 cross-device resume fix
+
+The prior build always preferred document-wide scroll percentage to an anchor,
+so mobile reflow could lead to the wrong place. New bookmarks encode a stable
+article-block index and position within that paragraph into the existing
+`anchor_id` column (no database migration); resume prioritizes this location,
+then old heading anchors, then percentage fallback. Opening an article with a
+saved reading position now resumes on a second device even without an explicit
+`sr_resume=1` URL, and same-article bookmark links are observed when query
+parameters change in Flarum's SPA router.
+
+**Existing beta.4 bookmarks remain valid**, but old progress recorded only as
+page percentage cannot be retroactively made pixel-perfect across different
+screen sizes. Create a new bookmark with beta.5 for precise paragraph-level
+cross-device positioning. A manual bookmark and the auto-saved latest progress
+are separate: tap a specific bookmark under **My Reading** to revisit it.
+
+**Status:** smoke tests only; not real-device integration-tested. Before using
+on your only production forum, back up your database and keep
+`php flarum extension:disable startpro-wiki-reader` ready.
+
 ## v0.1.0-beta.4 hotfix
 
 Fixed the missing bookmark controls for signed-in readers. Flarum 2.0.2 runs
@@ -65,7 +86,7 @@ The `crazymax/flarum` image uses `/data/extensions/list` to persist the package 
 
 ## Publishing and tagging
 
-Release versions are inferred from Git tags, not from a hard-coded `version` in `composer.json`. Begin with `v0.1.0-beta.4` after reviewing this code and establishing baseline tests. Submit the public GitHub repository URL to https://packagist.org/packages/submit. Verify that Packagist displays the beta tag before installing.
+Release versions are inferred from Git tags, not from a hard-coded `version` in `composer.json`. Begin with `v0.1.0-beta.5` after reviewing this code and establishing baseline tests. Submit the public GitHub repository URL to https://packagist.org/packages/submit. Verify that Packagist displays the beta tag before installing.
 
 ## License
 

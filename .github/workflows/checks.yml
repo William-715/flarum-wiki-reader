@@ -18,6 +18,8 @@ jobs:
         run: node js/tests/flarum-module-export.test.cjs
       - name: Flarum boot timing and signed-in bookmark controls
         run: node js/tests/flarum-login-lifecycle.test.cjs
+      - name: Cross-device paragraph bookmark and resume tests
+        run: node js/tests/cross-device-resume.test.cjs
       - name: Check LESS-compatible CSS functions
         run: |
           if grep -nE '(^|[^[:alnum:]_-])(min|max)\(' less/forum.css; then
