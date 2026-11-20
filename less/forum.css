@@ -1,7 +1,7 @@
 .SPWikiReader-dock {
   position: fixed; right: 20px; bottom: 20px; z-index: 950;
   display: flex; align-items: center; flex-wrap: wrap; gap: 7px;
-  max-width: min(96vw, 470px); padding: 9px;
+  max-width: 470px; padding: 9px;
   background: var(--body-bg, #fff); border: 1px solid var(--control-bg, #ddd);
   box-shadow: 0 8px 30px rgba(0,0,0,.15); border-radius: 16px;
 }
@@ -13,7 +13,7 @@
 .SPWikiReader-status { flex-basis: 100%; font-size: 11px; color: var(--muted-color, #777); padding-left: 3px; }
 .SPWikiReader-status:empty { display: none; }
 .SPWikiReader-panel { box-sizing: border-box; position: fixed; right: 20px; bottom: 92px; z-index: 951;
-  width: min(410px, calc(100vw - 24px)); max-height: min(74vh, 690px);
+  width: 410px; max-width: calc(100vw - 24px); max-height: 74vh;
   background: var(--body-bg, #fff); color: var(--text-color, #222); border-radius: 16px;
   border: 1px solid var(--control-bg, #ddd); box-shadow: 0 16px 46px rgba(0,0,0,.22);
   overflow: hidden; display: flex; flex-direction: column;

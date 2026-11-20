@@ -4,6 +4,10 @@ An independent Flarum **2.x** extension adding per-user reading progress, resume
 
 **Status:** Experimental beta; source and lightweight static checks only. This has **not** passed Flarum+LR Wiki integration testing. Do not deploy to a production forum without testing on a backup clone.
 
+## v0.1.0-beta.2 hotfix
+
+Fixed Flarum Less compilation failure caused by CSS `min()` with incompatible `vw`/`px` units, which caused forum HTTP 500 on enabling beta.1. The update has been statically checked but is **not** a full integration-test pass.
+
 ## Features
 
 - Save the last reading location (scroll percentage + heading anchor) for a signed-in user.
@@ -40,7 +44,7 @@ The `crazymax/flarum` image uses `/data/extensions/list` to persist the package 
 
 ## Publishing and tagging
 
-Release versions are inferred from Git tags, not from a hard-coded `version` in `composer.json`. Begin with `v0.1.0-beta.1` after reviewing this code and establishing baseline tests. Submit the public GitHub repository URL to https://packagist.org/packages/submit. Verify that Packagist displays the beta tag before installing.
+Release versions are inferred from Git tags, not from a hard-coded `version` in `composer.json`. Begin with `v0.1.0-beta.2` after reviewing this code and establishing baseline tests. Submit the public GitHub repository URL to https://packagist.org/packages/submit. Verify that Packagist displays the beta tag before installing.
 
 ## License
 
