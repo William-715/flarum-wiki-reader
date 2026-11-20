@@ -373,3 +373,7 @@
     window.setInterval(onRouteChange, 800);
   });
 })();
+
+// Flarum 2.x wraps extension JS with `var module={}` and expects a module export.
+// Without this object, Application.bootExtensions() throws reading `.extend`.
+module.exports = {};

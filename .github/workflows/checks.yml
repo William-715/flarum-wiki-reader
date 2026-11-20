@@ -14,6 +14,8 @@ jobs:
         run: find . -type f -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l
       - name: JS syntax checks
         run: node --check js/dist/forum.js
+      - name: Flarum 2.x JS module export smoke test
+        run: node js/tests/flarum-module-export.test.cjs
       - name: Check LESS-compatible CSS functions
         run: |
           if grep -nE '(^|[^[:alnum:]_-])(min|max)\(' less/forum.css; then

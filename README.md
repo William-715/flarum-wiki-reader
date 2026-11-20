@@ -4,6 +4,15 @@ An independent Flarum **2.x** extension adding per-user reading progress, resume
 
 **Status:** Experimental beta; source and lightweight static checks only. This has **not** passed Flarum+LR Wiki integration testing. Do not deploy to a production forum without testing on a backup clone.
 
+## v0.1.0-beta.3 hotfix
+
+Fixed Flarum 2.x frontend bootstrap crash: Flarum expects `module.exports`
+for each JavaScript extension, but the earlier beta shipped only an IIFE.
+The missing export caused `Cannot read properties of undefined (reading 'extend')`
+in `Application.bootExtensions()`. Added a simulated boot-contract CI smoke test.
+This is **not** an end-to-end Flarum/LR Wiki test. Keep the plugin disabled
+until you can verify the forum homepage and Wiki workflow after updating.
+
 ## v0.1.0-beta.2 hotfix
 
 Fixed Flarum Less compilation failure caused by CSS `min()` with incompatible `vw`/`px` units, which caused forum HTTP 500 on enabling beta.1. The update has been statically checked but is **not** a full integration-test pass.

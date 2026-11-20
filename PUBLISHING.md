@@ -10,3 +10,7 @@
 8. Test two independent users and resume/bookmark behavior on a backup clone before production rollout.
 
 If you later release `v0.1.0`, install with `extension require 'startpro/wiki-reader:^0.1'` after Packagist indexes the stable tag.
+
+### Beta 3 notice
+
+The beta.3 tag contains the JavaScript CommonJS export fix. Beta.1 and beta.2 should stay published for history but must not be enabled on a production forum. Before beta.3 activation, back up the database and have a known-good disable command ready.
