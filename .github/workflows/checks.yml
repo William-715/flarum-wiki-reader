@@ -16,6 +16,8 @@ jobs:
         run: node --check js/dist/forum.js
       - name: Flarum 2.x JS module export smoke test
         run: node js/tests/flarum-module-export.test.cjs
+      - name: Flarum boot timing and signed-in bookmark controls
+        run: node js/tests/flarum-login-lifecycle.test.cjs
       - name: Check LESS-compatible CSS functions
         run: |
           if grep -nE '(^|[^[:alnum:]_-])(min|max)\(' less/forum.css; then

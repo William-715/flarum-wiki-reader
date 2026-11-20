@@ -4,6 +4,18 @@ An independent Flarum **2.x** extension adding per-user reading progress, resume
 
 **Status:** Experimental beta; source and lightweight static checks only. This has **not** passed Flarum+LR Wiki integration testing. Do not deploy to a production forum without testing on a backup clone.
 
+## v0.1.0-beta.4 hotfix
+
+Fixed the missing bookmark controls for signed-in readers. Flarum 2.0.2 runs
+extension initializers **before** assigning `app.session`; earlier builds
+stored a permanent `false` login flag and started article API requests too
+early. This version checks authentication dynamically and starts its UI after
+the synchronous Flarum boot. Added a lifecycle smoke test that simulates a
+signed-in user being available only after initializers run.
+
+Still a **beta**: these automated checks are not a full Flarum+LR Wiki
+integration test. Test carefully and disable the extension on errors.
+
 ## v0.1.0-beta.3 hotfix
 
 Fixed Flarum 2.x frontend bootstrap crash: Flarum expects `module.exports`
@@ -53,7 +65,7 @@ The `crazymax/flarum` image uses `/data/extensions/list` to persist the package 
 
 ## Publishing and tagging
 
-Release versions are inferred from Git tags, not from a hard-coded `version` in `composer.json`. Begin with `v0.1.0-beta.2` after reviewing this code and establishing baseline tests. Submit the public GitHub repository URL to https://packagist.org/packages/submit. Verify that Packagist displays the beta tag before installing.
+Release versions are inferred from Git tags, not from a hard-coded `version` in `composer.json`. Begin with `v0.1.0-beta.4` after reviewing this code and establishing baseline tests. Submit the public GitHub repository URL to https://packagist.org/packages/submit. Verify that Packagist displays the beta tag before installing.
 
 ## License
 

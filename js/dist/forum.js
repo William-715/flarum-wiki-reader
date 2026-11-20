@@ -9,7 +9,11 @@
     const PREFIX = 'SPWikiReader';
     const API = (app.forum && app.forum.attribute('apiUrl') || (window.location.origin + '/api')).replace(/\/$/, '') + '/startpro/wiki-reader';
     const BASE = (app.forum && app.forum.attribute('baseUrl') || window.location.origin).replace(/\/$/, '');
-    const SIGNED_IN = !!(app.session && app.session.user);
+    // Flarum executes extension initializers before it constructs app.session.
+    // Never snapshot the login state here: inspect it when actions are invoked.
+    function signedIn() {
+      return !!(app.session && app.session.user);
+    }
     const SAVE_INTERVAL = 6500;
 
     let active = null;
@@ -98,7 +102,7 @@
     }
 
     function queueSave() {
-      if (!SIGNED_IN || !active || !active.article || !getBody()) return;
+      if (!signedIn() || !active || !active.article || !getBody()) return;
       dirty = true;
       if (saveTimer) return;
       saveTimer = window.setTimeout(function () {
@@ -108,7 +112,7 @@
     }
 
     async function persistProgress() {
-      if (!dirty || saving || !SIGNED_IN || !active || !active.article) return;
+      if (!dirty || saving || !signedIn() || !active || !active.article) return;
       const point = snapshot();
       if (!point) return;
       dirty = false;
@@ -131,7 +135,7 @@
     }
 
     function flushOnHide() {
-      if (!dirty || !active || !SIGNED_IN || !app.session || !app.session.csrfToken) return;
+      if (!dirty || !active || !signedIn() || !app.session || !app.session.csrfToken) return;
       const point = snapshot();
       if (!point) return;
       dirty = false;
@@ -216,7 +220,7 @@
       if (!visible) hidePanel();
       const markBtn = toolbar.querySelector('.' + PREFIX + '-markButton');
       const resumeBtn = toolbar.querySelector('.' + PREFIX + '-resumeButton');
-      markBtn.hidden = !SIGNED_IN || !active || !active.article || !getBody();
+      markBtn.hidden = !signedIn() || !active || !active.article || !getBody();
       resumeBtn.hidden = !active || !active.progress || !getBody();
     }
 
@@ -242,7 +246,7 @@
     function renderLibrary() {
       if (!content) return;
       content.replaceChildren();
-      if (!SIGNED_IN) {
+      if (!signedIn()) {
         content.appendChild(element('p', PREFIX + '-muted', '登录论坛后，可在不同设备间同步书签和阅读进度。'));
         return;
       }
@@ -271,7 +275,7 @@
       dialog.hidden = false;
       library = null;
       renderLibrary();
-      if (!SIGNED_IN) return;
+      if (!signedIn()) return;
       try {
         library = await apiRequest('GET', API);
       } catch (err) {
@@ -282,7 +286,7 @@
     }
 
     async function addBookmark() {
-      if (!SIGNED_IN || !active || !getBody()) return;
+      if (!signedIn() || !active || !getBody()) return;
       const point = snapshot();
       if (!point) return;
       try {
@@ -300,7 +304,7 @@
     }
 
     async function removeBookmark(id) {
-      if (!SIGNED_IN) return;
+      if (!signedIn()) return;
       try {
         await apiRequest('DELETE', API + '/bookmarks/' + encodeURIComponent(String(id)));
         statusText('书签已删除');
@@ -316,7 +320,7 @@
         if (generation !== token) return;
         active = result;
         updateDock();
-        if (SIGNED_IN && !result.progress) {
+        if (signedIn() && !result.progress) {
           // Record a new chapter visit. Never overwrite an existing saved
           // position with 0% just because the reader re-opened the chapter.
           window.setTimeout(function () { if (generation === token) queueSave(); }, 2200);
@@ -362,15 +366,20 @@
       if (route && route.type === 'article') loadArticle(route.address, generation);
     }
 
-    makeDock();
-    onRouteChange();
-    window.addEventListener('scroll', function () { if (active && SIGNED_IN) queueSave(); }, { passive: true });
-    window.addEventListener('popstate', onRouteChange);
-    window.addEventListener('pagehide', flushOnHide);
-    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') flushOnHide(); });
-    // LR Wiki's pages are lazily loaded in Flarum 2's SPA. A small route watcher
-    // avoids relying on the wiki's private component exports or DOM lifecycle.
-    window.setInterval(onRouteChange, 800);
+    // Defer DOM mounting and initial article API requests until Flarum has
+    // completed its synchronous boot and assigned app.session/app.forum.
+    // Calling app.request during an initializer can fail before session exists.
+    window.setTimeout(function startReaderAfterBoot() {
+      makeDock();
+      onRouteChange();
+      window.addEventListener('scroll', function () { if (active && signedIn()) queueSave(); }, { passive: true });
+      window.addEventListener('popstate', onRouteChange);
+      window.addEventListener('pagehide', flushOnHide);
+      document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') flushOnHide(); });
+      // LR Wiki's pages are lazily loaded in Flarum 2's SPA. A small route watcher
+      // avoids relying on the wiki's private component exports or DOM lifecycle.
+      window.setInterval(onRouteChange, 800);
+    }, 0);
   });
 })();
 
