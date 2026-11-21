@@ -14,18 +14,11 @@ final class DeleteBookmarkController extends ReaderController implements Request
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $userId = $this->actorId($request);
-        if ($userId === null) {
-            return $this->error('Sign in to remove bookmarks', 401);
-        }
-
+        if ($userId === null) return $this->error('Sign in to remove bookmarks', 401);
         $id = (int) ($request->getQueryParams()['id'] ?? 0);
         $bookmark = ReadingBookmark::query()->where('user_id', $userId)->find($id);
-        if (!$bookmark) {
-            return $this->error('Bookmark not found', 404);
-        }
-
+        if (!$bookmark) return $this->error('Bookmark not found', 404);
         $bookmark->delete();
-
-        return $this->reply(['deleted' => true]);
+        return $this->reply(['deleted' => true, 'canUndoForSeconds' => 600]);
     }
 }

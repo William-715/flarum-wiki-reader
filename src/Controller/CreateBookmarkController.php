@@ -14,41 +14,31 @@ final class CreateBookmarkController extends ReaderController implements Request
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $userId = $this->actorId($request);
-        if ($userId === null) {
-            return $this->error('Sign in to add bookmarks', 401);
-        }
+        if ($userId === null) return $this->error('Sign in to add bookmarks', 401);
 
         $body = $this->payload($request);
-        $rawId = $body['articleId'] ?? null;
-        $articleId = (is_string($rawId) || is_int($rawId))
-            ? filter_var($rawId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])
-            : false;
+        $articleId = filter_var($body['articleId'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         $article = $articleId === false ? null : $this->publicArticleById((int) $articleId);
-        if (!$article) {
-            return $this->error('Article not found', 404);
-        }
+        if (!$article) return $this->error('Article not found', 404);
 
         $percent = $this->percentage($body['scrollPercent'] ?? null);
-        if ($percent === null) {
-            return $this->error('scrollPercent must be between 0 and 100', 422);
+        if ($percent === null) return $this->error('scrollPercent must be between 0 and 100', 422);
+        $label = $this->label($body['label'] ?? '', (string) $article->title);
+        if ($label === null) return $this->error('Invalid label', 422);
+        $note = $this->note($body['note'] ?? '');
+        if ($note === null) return $this->error('Note must be at most 1000 characters', 422);
+
+        if (ReadingBookmark::query()->where('user_id', $userId)->count() >= 2000) {
+            return $this->error('Bookmark limit reached (2000)', 422);
         }
-
-        $rawLabel = $body['label'] ?? '';
-        $label = is_string($rawLabel) ? trim($rawLabel) : '';
-        $label = mb_substr($label !== '' ? $label : (string) $article->title, 0, 120);
-
-        if (ReadingBookmark::query()->where('user_id', $userId)->count() >= 200) {
-            return $this->error('Bookmark limit reached (200)', 422);
-        }
-
         $bookmark = ReadingBookmark::query()->create([
-            'user_id' => $userId,
-            'article_id' => (int) $article->id,
+            'user_id' => $userId, 'article_id' => (int) $article->id,
             'scroll_percent' => $percent,
             'anchor_id' => $this->anchor($body['anchorId'] ?? null),
+            'position_context' => $this->positionContext($body['positionContext'] ?? null),
             'label' => $label,
+            'note' => $note,
         ]);
-
         return $this->reply(['bookmark' => $this->bookmarkData($bookmark)], 201);
     }
 }

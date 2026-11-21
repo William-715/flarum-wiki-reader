@@ -94,6 +94,6 @@ assert.equal(callbacks[0]?.ms, 0, 'UI boot should be deferred to next task');
   await new Promise(resolve => setImmediate(resolve));
   const panel = body.querySelector('.SPWikiReader-panel');
   const panelContent = panel.querySelector('.SPWikiReader-panelContent');
-  assert.equal(panelContent.children[0].textContent, '最近阅读', 'Signed-in users should see history, not sign-in prompt');
+  assert.ok(panelContent.children.some(el => el.textContent === '最近阅读'), 'Signed-in users should see history, not sign-in prompt');
   console.log('Flarum delayed-session and bookmark controls smoke test passed');
 })().catch(err => { console.error(err); process.exitCode = 1; });

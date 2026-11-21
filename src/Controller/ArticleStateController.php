@@ -9,6 +9,9 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use StartPro\WikiReader\Model\ReadingBookmark;
 use StartPro\WikiReader\Model\ReadingProgress;
+use StartPro\WikiReader\Model\ReadingHighlight;
+use StartPro\WikiReader\Model\ReadingCompletion;
+use StartPro\WikiReader\Model\ReaderBookChapter;
 
 final class ArticleStateController extends ReaderController implements RequestHandlerInterface
 {
@@ -33,11 +36,22 @@ final class ArticleStateController extends ReaderController implements RequestHa
             ->orderByDesc('created_at')->limit(100)->get()
             ->map(fn (ReadingBookmark $bookmark) => $this->bookmarkData($bookmark))->all();
 
+        $highlights = $userId === null ? [] : ReadingHighlight::query()
+            ->where('user_id', $userId)->where('article_id', $article->id)
+            ->orderByDesc('created_at')->limit(200)->get()
+            ->map(fn (ReadingHighlight $h) => $this->highlightData($h))->all();
+        $completed = $userId !== null && ReadingCompletion::query()
+            ->where('user_id', $userId)->where('article_id', $article->id)->exists();
+        $chapter = ReaderBookChapter::query()->where('article_id', $article->id)->first();
+
         return $this->reply([
             'article' => $this->articleData($article),
             'signedIn' => $userId !== null,
             'progress' => $this->positionData($position),
             'bookmarks' => $bookmarks,
+            'highlights' => $highlights,
+            'completed' => $completed,
+            'bookId' => $chapter ? (int) $chapter->book_id : null,
         ]);
     }
 }

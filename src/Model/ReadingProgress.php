@@ -12,9 +12,15 @@ class ReadingProgress extends AbstractModel
 {
     protected $table = 'startpro_wiki_reader_progress';
 
-    protected $fillable = ['user_id', 'article_id', 'scroll_percent', 'anchor_id'];
+    protected $fillable = ['user_id', 'article_id', 'scroll_percent', 'anchor_id', 'position_context', 'version'];
 
-    protected $casts = ['scroll_percent' => 'float', 'article_id' => 'integer', 'user_id' => 'integer'];
+    protected $casts = [
+        'scroll_percent' => 'float',
+        'article_id' => 'integer',
+        'user_id' => 'integer',
+        'position_context' => 'array',
+        'version' => 'integer',
+    ];
 
     public function article(): BelongsTo
     {

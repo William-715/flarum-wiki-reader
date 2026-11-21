@@ -1,93 +1,65 @@
 # StartPro Wiki Reader
 
-An independent Flarum **2.x** extension adding per-user reading progress, resume-reading, and bookmarks to [LR Wiki](https://github.com/linkrobins/flarum-wiki).
+An independent **Flarum 2.x** extension adding personal reading continuity to [LR Wiki](https://github.com/linkrobins/flarum-wiki).
 
-**Status:** Experimental beta; source and lightweight static checks only. This has **not** passed Flarum+LR Wiki integration testing. Do not deploy to a production forum without testing on a backup clone.
+> **Release:** `v0.3.0-beta.1` — experimental. The previous Beta 5 was manually confirmed on desktop and mobile by the project owner. This v0.3 revision has static and simulated interaction tests, **not** real production integration acceptance.
 
-## v0.1.0-beta.5 cross-device resume fix
+## What v0.3 adds
 
-The prior build always preferred document-wide scroll percentage to an anchor,
-so mobile reflow could lead to the wrong place. New bookmarks encode a stable
-article-block index and position within that paragraph into the existing
-`anchor_id` column (no database migration); resume prioritizes this location,
-then old heading anchors, then percentage fallback. Opening an article with a
-saved reading position now resumes on a second device even without an explicit
-`sr_resume=1` URL, and same-article bookmark links are observed when query
-parameters change in Flarum's SPA router.
+- **划线与个人笔记**: select a passage inside a single paragraph/list item, click `✍ 划线`, then add/edit a private note from the `划线笔记` tab. Notes are stored in MySQL for cross-device access. Browsers supporting CSS Highlight API display non-destructive in-place highlights. A notes list remains accessible on other browsers.
+- **我的书架**: administrators define explicit books and associate Wiki articles as ordered chapters. Personal chapter-completion toggles and unfinished/finished counts; recent standalone articles remain visible if not assigned to a book. Wiki categories are *not* assumed to represent entire books.
+- **阅读统计**: approximate engaged reading time since v0.3, active days, visited articles, personally marked completed chapters, bookmarks and highlights.
+- **Preserved v0.2 features**: durable text quote positioning, cross-device conflict detection, bookmark name/note editing, search, pagination, undo deletion, compact mobile panel.
 
-**Existing beta.4 bookmarks remain valid**, but old progress recorded only as
-page percentage cannot be retroactively made pixel-perfect across different
-screen sizes. Create a new bookmark with beta.5 for precise paragraph-level
-cross-device positioning. A manual bookmark and the auto-saved latest progress
-are separate: tap a specific bookmark under **My Reading** to revisit it.
+## Installation
 
-**Status:** smoke tests only; not real-device integration-tested. Before using
-on your only production forum, back up your database and keep
-`php flarum extension:disable startpro-wiki-reader` ready.
+Requires PHP `^8.3`, Flarum `^2.0`, LR Wiki `^1.11`, MySQL-compatible database.
 
-## v0.1.0-beta.4 hotfix
-
-Fixed the missing bookmark controls for signed-in readers. Flarum 2.0.2 runs
-extension initializers **before** assigning `app.session`; earlier builds
-stored a permanent `false` login flag and started article API requests too
-early. This version checks authentication dynamically and starts its UI after
-the synchronous Flarum boot. Added a lifecycle smoke test that simulates a
-signed-in user being available only after initializers run.
-
-Still a **beta**: these automated checks are not a full Flarum+LR Wiki
-integration test. Test carefully and disable the extension on errors.
-
-## v0.1.0-beta.3 hotfix
-
-Fixed Flarum 2.x frontend bootstrap crash: Flarum expects `module.exports`
-for each JavaScript extension, but the earlier beta shipped only an IIFE.
-The missing export caused `Cannot read properties of undefined (reading 'extend')`
-in `Application.bootExtensions()`. Added a simulated boot-contract CI smoke test.
-This is **not** an end-to-end Flarum/LR Wiki test. Keep the plugin disabled
-until you can verify the forum homepage and Wiki workflow after updating.
-
-## v0.1.0-beta.2 hotfix
-
-Fixed Flarum Less compilation failure caused by CSS `min()` with incompatible `vw`/`px` units, which caused forum HTTP 500 on enabling beta.1. The update has been statically checked but is **not** a full integration-test pass.
-
-## Features
-
-- Save the last reading location (scroll percentage + heading anchor) for a signed-in user.
-- Resume reading an LR Wiki article.
-- Add and remove multiple bookmarks, view recently read articles.
-- Per-user access restrictions; drafts and deleted articles are excluded.
-- Reading data in independent database tables.
-
-## Requirements
-
-- PHP `^8.3`, Flarum `^2.0`, LR Wiki `^1.11`.
-- MySQL-compatible Flarum database.
-
-## Install (after Packagist has indexed the beta tag)
-
-In the `crazymax/flarum` Docker container:
+In the `crazymax/flarum` Docker container, after Packagist has indexed the new tag and database backup has been verified:
 
 ```bash
-extension require 'startpro/wiki-reader:^0.1@beta'
+extension require 'startpro/wiki-reader:0.3.0-beta.1'
+php flarum extension:enable startpro-wiki-reader
 php flarum migrate
 php flarum cache:clear
 ```
 
-Enable **StartPro Wiki 阅读助手** in the Flarum administration dashboard. On a normal non-Docker Flarum installation, run `composer require 'startpro/wiki-reader:^0.1@beta'` instead.
+**Do not apply these commands directly to an unbacked production forum**. See `UPGRADE-zh-CN.md` for upgrade and rollback sequence. The `extension require` mechanism persists the package declaration in `/data/extensions/list` for the crazymax image.
 
-The `crazymax/flarum` image uses `/data/extensions/list` to persist the package declaration across container rebuilds. Verify the package appears there before recreating your container.
+## Reader workflows
 
-## Notes
+1. Log in, open an LR Wiki article, and select up to **500 characters inside a single content block**. Click `✍ 划线`. Notes can be edited from `📖 我的阅读 → 划线笔记`.
+2. `我的书架` displays explicitly assigned multi-article books with manually marked completed chapters. It also lists recently read independent long articles.
+3. Administrators can create a book and attach the **currently open Wiki article** as a chapter from the `我的书架` admin section. Use the numeric order field to sort chapters. An article can only belong to one managed book at a time.
+4. `阅读统计` displays approximate active time and personally owned data. Idle and hidden tabs are not counted.
 
-- This extension does not alter LR Wiki tables.
-- Only signed-in users can save progress; guest visitors can still read wiki pages.
-- Disable the extension to stop usage without deleting stored data. Avoid **Purge** unless you intend to remove stored reading history/bookmarks.
-- For diagnostics, check Flarum `storage/logs`, the browser console, and `php flarum info`.
+## Data & privacy
 
-## Publishing and tagging
+- User-specific progress, bookmarks, highlights, note bodies, completion markers and reading sessions are stored in separate `startpro_*` database tables.
+- APIs scope personal data by the signed-in user's ID. Only published, non-deleted Wiki articles appear in lists. Administrators may manage the explicit book structure but cannot read other users' private notes through this extension.
+- Highlight text is limited to 500 characters, notes to 1000, book titles to 160, descriptions to 500.
+- **Do not use Purge** to troubleshoot: it can delete the extension's data. Disable the extension instead.
 
-Release versions are inferred from Git tags, not from a hard-coded `version` in `composer.json`. Begin with `v0.1.0-beta.5` after reviewing this code and establishing baseline tests. Submit the public GitHub repository URL to https://packagist.org/packages/submit. Verify that Packagist displays the beta tag before installing.
+## Known limitations / next acceptance gates
+
+- No exact reading-time guarantee; no backfill for older reading sessions.
+- CSS Highlight API is progressive: if unsupported, notes remain in the panel but inline yellow marks might not appear.
+- Selecting across multiple paragraphs is intentionally unsupported in this beta.
+- A single giant Markdown article is one chapter for completion purposes; its internal headings are not treated as separate LR Wiki articles.
+- No PDF/ePub import, annotation sharing, export, or automatic book-cover generation.
+- Author edits which delete the quoted text can invalidate inline highlighting; older location fields still provide fallback.
+- Chrome/Safari on desktop and iOS/Android browser checks, real Flarum/MySQL migrations and real book-management authorization checks are still needed before calling the release stable.
+
+## Development checks
+
+```bash
+find . -type f -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l
+php tests/reader-validation.php
+php tests/v03-validation.php
+node --check js/dist/forum.js
+for f in js/tests/*.test.cjs; do node "$f"; done
+```
 
 ## License
 
-MIT (Copyright StartPro).
+MIT. See `LICENSE`.
